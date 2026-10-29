@@ -2274,3 +2274,27 @@ fn loan_schedule_residue_keeps_excels_sign() {
     }
     assert_eq!(t.get("P7"), Value::Text("".into()));
 }
+
+/// Linked workbooks are never opened: a formula reading one keeps the value it was saved with,
+/// and what depends on it calculates from that value instead of `#REF!`.
+#[test]
+fn formulas_reading_a_linked_workbook_keep_their_saved_value() {
+    let mut t = T::new();
+    let sh = t.wb.sheet_mut(0).unwrap();
+    sh.cells.set(c("A1"), Cell::value(Value::Text("Nutella".into())));
+    for (at, f, v) in [("B1", "VLOOKUP(A1,'[1]Price list'!$A:$C,3,)", 1485.0), ("B2", "'[1]Sheet1'!A1*2", 7.0)] {
+        let mut cell = Cell::formula(Formula::new(&format!("={f}")));
+        cell.value = Value::number(v);
+        sh.cells.set(c(at), cell);
+    }
+    t.calc.recalc_all(&mut t.wb);
+    assert_eq!((t.num("B1"), t.num("B2")), (1485.0, 7.0));
+    t.set("C1", "=B1*2");
+    assert_eq!(t.num("C1"), 2970.0);
+    // Editing a precedent keeps the saved value too.
+    t.set("A1", "Kinder");
+    assert_eq!((t.num("B1"), t.num("C1")), (1485.0, 2970.0));
+    // A new formula into a linked workbook has no saved value to show.
+    t.set("D1", "='[1]Sheet1'!A1");
+    assert_eq!(t.get("D1"), Value::Error(CellError::Ref));
+}
