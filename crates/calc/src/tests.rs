@@ -2321,9 +2321,12 @@ fn formulas_reading_a_linked_workbook_keep_their_saved_value() {
     t.calc.recalc_all(&mut t.wb);
     assert_eq!((t.num("E1"), t.num("E2")), (9.0, 9.0));
     // A name qualified by a linked workbook.
-    let mut cell = Cell::formula(Formula::new("='[1]Sheet1'!Rate"));
-    cell.value = Value::number(5.0);
-    t.wb.sheet_mut(0).unwrap().cells.set(c("E3"), cell);
+    let sh = t.wb.sheet_mut(0).unwrap();
+    for (at, f) in [("E3", "='[1]Sheet1'!Rate"), ("E4", "='/tmp/!old/[Book.xlsx]Sheet1'!Rate")] {
+        let mut cell = Cell::formula(Formula::new(f));
+        cell.value = Value::number(5.0);
+        sh.cells.set(c(at), cell);
+    }
     t.calc.recalc_all(&mut t.wb);
-    assert_eq!(t.num("E3"), 5.0);
+    assert_eq!((t.num("E3"), t.num("E4")), (5.0, 5.0));
 }

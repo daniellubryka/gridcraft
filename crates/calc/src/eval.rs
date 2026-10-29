@@ -375,7 +375,7 @@ impl<'h> Evaluator<'h> {
         }
         let wb = self.host.workbook();
         // Sheet-qualified `Sheet1!Name`.
-        let (scope_sheet, bare) = match n.split_once('!') {
+        let (scope_sheet, bare) = match n.rsplit_once('!') {
             Some((s, _)) if s.contains('[') => {
                 self.linked.set(true);
                 return err(CellError::Name);
