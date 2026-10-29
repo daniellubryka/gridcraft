@@ -4,6 +4,7 @@
 //! `ROW`, `OFFSET`, `INDEX`, `:` and friends can work on references) or a lambda. Cell reads go
 //! through [`Host`], which lets the recalculation engine evaluate dirty precedents on demand.
 
+use std::cell::Cell;
 use std::sync::Arc;
 
 use gridcraft_core::{Array, CellError, CellRef, MAX_COLS, MAX_ROWS, RangeRef, Value, compare};
@@ -139,6 +140,8 @@ pub struct Evaluator<'h> {
     /// runs out of work after the same number of calls that a legitimately wide one could
     /// make, instead of an amount of work that squares with array nesting (#2382).
     fuel: u64,
+    /// Whether a reference into a linked workbook was read.
+    linked: Cell<bool>,
 }
 
 struct FnCtx<'a, 'h> {
@@ -187,6 +190,7 @@ impl Ctx for FnCtx<'_, '_> {
             calls: self.ev.calls,
             stack_top: self.ev.stack_top,
             fuel: self.ev.fuel,
+            linked: Cell::new(false),
         };
         let v = matches!(ev.value(&shifted).scalar().to_bool(), Ok(true));
         // The child's spend counts against this cell's budget.
@@ -210,7 +214,12 @@ impl Ctx for FnCtx<'_, '_> {
 
 impl<'h> Evaluator<'h> {
     pub fn new(host: &'h mut dyn Host, sheet: usize, at: CellRef) -> Self {
-        Evaluator { host, sheet, at, env: Vec::new(), depth: 0, calls: 0, stack_top: 0, fuel: LAMBDA_FUEL }
+        Evaluator { host, sheet, at, env: Vec::new(), depth: 0, calls: 0, stack_top: 0, fuel: LAMBDA_FUEL, linked: Cell::new(false) }
+    }
+
+    /// Whether evaluating read a reference into a linked workbook, which is never opened.
+    pub fn reads_linked_workbook(&self) -> bool {
+        self.linked.get()
     }
 
     /// Evaluates to a value (references are dereferenced; multi-cell → array).
@@ -232,6 +241,9 @@ impl<'h> Evaluator<'h> {
     }
 
     pub fn reference_areas(&self, r: &Reference) -> Result<Vec<Area>, CellError> {
+        if r.is_external() {
+            self.linked.set(true);
+        }
         let range = r.range();
         Ok(self.resolve_sheet(&r.sheet)?.into_iter().map(|sheet| Area { sheet, range }).collect())
     }

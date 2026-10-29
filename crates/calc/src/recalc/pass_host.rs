@@ -225,7 +225,9 @@ impl PassHost<'_> {
         }
         let expr = std::sync::Arc::clone(expr);
         let outer_out_of_stack = std::mem::replace(&mut self.out_of_stack, false);
-        let v = self.linked_value(k, &expr).unwrap_or_else(|| Evaluator::new(self, k.0, k.1).value(&expr));
+        let mut ev = Evaluator::new(self, k.0, k.1);
+        let v = ev.value(&expr);
+        let v = if ev.reads_linked_workbook() { self.saved_value(k).unwrap_or(v) } else { v };
         let out_of_stack = std::mem::replace(&mut self.out_of_stack, outer_out_of_stack);
         if out_of_stack && self.depth > 1 && self.suspend.is_none() {
             // It ran out of the stack left below the formulas that read it: it is calculated
@@ -304,9 +306,9 @@ impl PassHost<'_> {
 
     /// Linked workbooks are never opened: a formula reading one keeps the value it was saved with,
     /// as in Excel until links are updated, rather than turning into `#REF!`.
-    fn linked_value(&self, k: Key, expr: &Expr) -> Option<Value> {
+    fn saved_value(&self, k: Key) -> Option<Value> {
         let saved = &self.wb.sheet(k.0)?.cell(k.1)?.value;
-        (!saved.is_empty() && expr.reads_linked_workbook()).then(|| saved.clone())
+        (!saved.is_empty() && !matches!(saved, Value::Error(_))).then(|| saved.clone())
     }
 
     /// A formula's previous value for iterative calculation: from the last iteration, else the

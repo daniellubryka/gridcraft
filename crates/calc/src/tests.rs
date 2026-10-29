@@ -2297,4 +2297,27 @@ fn formulas_reading_a_linked_workbook_keep_their_saved_value() {
     // A new formula into a linked workbook has no saved value to show.
     t.set("D1", "='[1]Sheet1'!A1");
     assert_eq!(t.get("D1"), Value::Error(CellError::Ref));
+    // A branch that never reads the linked workbook calculates normally, and a calculated error
+    // is not mistaken for a saved value.
+    t.set("A2", "1");
+    t.set("D2", "=IF(A2,'[1]Sheet1'!A1,42)");
+    assert_eq!(t.get("D2"), Value::Error(CellError::Ref));
+    t.set("A2", "0");
+    assert_eq!(t.num("D2"), 42.0);
+    // Through a defined name, and with a path before the book.
+    t.wb.names.push(gridcraft_model::DefinedName {
+        name: "Prices".into(),
+        scope: None,
+        formula: "'[1]Price list'!$A:$C".into(),
+        comment: String::new(),
+        hidden: false,
+    });
+    let sh = t.wb.sheet_mut(0).unwrap();
+    for (at, f) in [("E1", "=VLOOKUP(A1,Prices,3,)"), ("E2", "='C:\\dir\\[Book.xlsx]Sheet1'!A1")] {
+        let mut cell = Cell::formula(Formula::new(f));
+        cell.value = Value::number(9.0);
+        sh.cells.set(c(at), cell);
+    }
+    t.calc.recalc_all(&mut t.wb);
+    assert_eq!((t.num("E1"), t.num("E2")), (9.0, 9.0));
 }

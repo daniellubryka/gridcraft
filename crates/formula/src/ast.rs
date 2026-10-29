@@ -61,9 +61,9 @@ impl Reference {
         }
     }
     /// A reference into another workbook (`[1]Sheet1!A1`, `'[1]My sheet'!A:C`). Sheet names can't
-    /// hold `[` or `]`, so a leading `[` never names a sheet of this workbook.
+    /// hold `[` or `]`, so a `[` never names a sheet of this workbook.
     pub fn is_external(&self) -> bool {
-        let book = |name: &str| name.starts_with('[');
+        let book = |name: &str| name.contains('[');
         match &self.sheet {
             SheetSel::Current => false,
             SheetSel::Named(name) => book(name),
@@ -278,12 +278,6 @@ impl Expr {
             }
         });
         v
-    }
-    /// Whether the formula reads another workbook.
-    pub fn reads_linked_workbook(&self) -> bool {
-        let mut linked = false;
-        self.walk(&mut |e| linked |= matches!(e, Expr::Ref(r) if r.is_external()));
-        linked
     }
     /// Function names used (upper-case).
     pub fn functions(&self) -> Vec<&str> {
