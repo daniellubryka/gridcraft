@@ -2320,4 +2320,10 @@ fn formulas_reading_a_linked_workbook_keep_their_saved_value() {
     }
     t.calc.recalc_all(&mut t.wb);
     assert_eq!((t.num("E1"), t.num("E2")), (9.0, 9.0));
+    // A name qualified by a linked workbook.
+    let mut cell = Cell::formula(Formula::new("='[1]Sheet1'!Rate"));
+    cell.value = Value::number(5.0);
+    t.wb.sheet_mut(0).unwrap().cells.set(c("E3"), cell);
+    t.calc.recalc_all(&mut t.wb);
+    assert_eq!(t.num("E3"), 5.0);
 }

@@ -193,6 +193,9 @@ impl Ctx for FnCtx<'_, '_> {
             linked: Cell::new(false),
         };
         let v = matches!(ev.value(&shifted).scalar().to_bool(), Ok(true));
+        if ev.reads_linked_workbook() {
+            self.ev.linked.set(true);
+        }
         // The child's spend counts against this cell's budget.
         self.ev.fuel = ev.fuel;
         Some(v)
@@ -373,6 +376,10 @@ impl<'h> Evaluator<'h> {
         let wb = self.host.workbook();
         // Sheet-qualified `Sheet1!Name`.
         let (scope_sheet, bare) = match n.split_once('!') {
+            Some((s, _)) if s.contains('[') => {
+                self.linked.set(true);
+                return err(CellError::Name);
+            }
             Some((s, b)) => match wb.sheet_index(&gridcraft_core::unquote_sheet(s)) {
                 Some(i) => (i, b),
                 None => return err(CellError::Name),
