@@ -39,11 +39,21 @@ pub struct Calc {
     pub last_recalc_cells: usize,
     /// Answers WEBSERVICE; without one it is `#VALUE!`.
     web: Option<std::sync::Arc<dyn gridcraft_functions::WebFetcher>>,
+    /// [`Calc::recalc_all`] has run.
+    full_pass: bool,
 }
 
 impl Default for Calc {
     fn default() -> Self {
-        Calc { graph: Graph::default(), rng: 0x9E37_79B9_7F4A_7C15, fixed_now: None, circular: vec![], last_recalc_cells: 0, web: None }
+        Calc {
+            graph: Graph::default(),
+            rng: 0x9E37_79B9_7F4A_7C15,
+            fixed_now: None,
+            circular: vec![],
+            last_recalc_cells: 0,
+            web: None,
+            full_pass: false,
+        }
     }
 }
 
@@ -123,13 +133,19 @@ impl Calc {
         now_serial()
     }
 
-    /// Rebuilds the graph from scratch.
     /// Installs (or with `None` removes) what answers WEBSERVICE. Cells already calculated keep
     /// their values until they next recalculate.
     pub fn set_web_fetcher(&mut self, fetcher: Option<std::sync::Arc<dyn gridcraft_functions::WebFetcher>>) {
         self.web = fetcher;
     }
 
+    /// Whether [`Calc::recalc_all`] has run: false for a `Calc` that only [`Calc::rebuild`] built
+    /// the graph for, whose workbook still holds the values its file saved.
+    pub fn has_calculated_all(&self) -> bool {
+        self.full_pass
+    }
+
+    /// Rebuilds the graph from scratch.
     pub fn rebuild(&mut self, wb: &Workbook) {
         self.graph = Graph::default();
         let mut circ = Vec::new();
@@ -194,6 +210,7 @@ impl Calc {
 
     /// Recalculates every formula (F9 / Ctrl+Alt+F9, and after loading).
     pub fn recalc_all(&mut self, wb: &mut Workbook) {
+        self.full_pass = true;
         self.rebuild(wb);
         // Spills are laid out again from the formulas where they are now (a structural edit moves
         // or deletes the formulas, not the values they spilled).

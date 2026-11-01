@@ -312,3 +312,32 @@ fn from_saved_documents_keep_their_values() {
     s.add_document(gridcraft_engine::DocState::from_saved(wb, None, "saved".into(), gridcraft_engine::Trust::FromFile));
     assert_eq!(value(&s, "A1"), Value::Error(gridcraft_core::CellError::Value));
 }
+
+/// Installing a fetcher calculates only the formulas that reach WEBSERVICE: an unused defined name
+/// that mentions it, and unrelated formulas, are left alone.
+#[test]
+fn opening_calculates_only_formulas_that_reach_webservice() {
+    let mut writer = Session::new();
+    writer.execute("file.new", json!({})).unwrap();
+    writer.execute("formulas.defineName", json!({"name": "Unused", "refersTo": "=WEBSERVICE(\"https://api.test/hello\")"})).unwrap();
+    set(&mut writer, "A1", "=1+1");
+    let wb = (*writer.doc().unwrap().wb).clone();
+
+    let mut s = Session::new();
+    s.set_web_fetcher(Some(Arc::new(CannedWeb)));
+    let mut d = gridcraft_engine::DocState::new(wb, None, "unused".into(), gridcraft_engine::Trust::FromFile);
+    d.calc.last_recalc_cells = 999;
+    s.add_document(d);
+    assert_eq!(s.doc().unwrap().calc.last_recalc_cells, 999, "nothing reaches the name, so nothing is calculated");
+
+    let mut writer = Session::new();
+    writer.execute("file.new", json!({})).unwrap();
+    set(&mut writer, "A1", "=WEBSERVICE(\"https://api.test/hello\")");
+    set(&mut writer, "A2", "=1+1");
+    let wb = (*writer.doc().unwrap().wb).clone();
+    let mut s = Session::new();
+    s.set_web_fetcher(Some(Arc::new(CannedWeb)));
+    s.add_document(gridcraft_engine::DocState::new(wb, None, "used".into(), gridcraft_engine::Trust::FromFile));
+    assert_eq!(value(&s, "A1"), Value::from("hello"));
+    assert_eq!(s.doc().unwrap().calc.last_recalc_cells, 1, "only the WEBSERVICE cell is calculated, not A2");
+}
