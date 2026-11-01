@@ -249,7 +249,7 @@ fn read_value(
         return Ok(None);
     }
     *total += data.len();
-    let picture = Arc::new(CellPicture { data, mime: mime.to_string(), alt });
+    let picture = Arc::new(CellPicture { data, mime: mime.to_string(), alt, sizing: Default::default() });
     cache.insert(key, picture.clone());
     Ok(Some(picture))
 }

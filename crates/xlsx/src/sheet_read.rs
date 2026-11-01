@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use gridcraft_core::date::{serial_from_ymd, time_fraction};
-use gridcraft_core::{CellError, CellRef, DateSystem, MAX_COLS, MAX_ROWS, RangeRef, Value};
+use gridcraft_core::{CellError, CellRef, DateSystem, MAX_COLS, MAX_ROWS, PictureSizing, RangeRef, Value};
 use gridcraft_formula::Expr;
 use gridcraft_model::{
     AutoFilter, Cell, CfOperator, CfRule, CfValueKind, Comment, CondFormat, EditRange, ErrorStyle, FilterCriterion, Formula, Hyperlink, LineInfo,
@@ -514,11 +514,17 @@ fn read_cell(cx: &mut Ctx<'_>, sheet: &mut Sheet, st: &mut RowState, c: &El, pos
         }
         picture
     });
-    if let Some(picture) = picture {
-        if c.child("f").is_some() {
-            cx.warn("formula-generated cell pictures were imported as static pictures; their formulas were not retained");
-        }
+    if let Some(mut picture) = picture {
+        // A picture from a formula (IMAGE) keeps the formula, so it is calculated again; the picture
+        // stays until then, as the cell's last result.
+        let formula = c.child("f").and_then(|f| read_formula(cx, st, f, pos, false));
+        let sizing = formula.as_ref().map(image_sizing).unwrap_or_default();
+        Arc::make_mut(&mut picture).sizing = sizing;
         sheet.set_picture(pos, picture);
+        if let Some(formula) = formula {
+            let value = sheet.value(pos);
+            sheet.cells.set(pos, Cell { value, formula: Some(Arc::new(formula)), style });
+        }
         sheet.set_style(pos, style);
         return;
     }
@@ -526,6 +532,23 @@ fn read_cell(cx: &mut Ctx<'_>, sheet: &mut Sheet, st: &mut RowState, c: &El, pos
     let formula = c.child("f").and_then(|f| read_formula(cx, st, f, pos, dynamic));
     let value = if formula.is_none() && in_dynamic(st, pos) { Value::Empty } else { value };
     sheet.cells.set(pos, Cell { value, formula: formula.map(Arc::new), style });
+}
+
+/// The sizing an IMAGE formula asks for, read from its literal arguments. Fit when the formula is
+/// not an IMAGE call with literal sizing, height and width, or when they do not make a valid sizing.
+fn image_sizing(formula: &Formula) -> PictureSizing {
+    let Some(expr) = formula.expr_arc() else { return PictureSizing::Fit };
+    let Expr::Call(name, args) = &*expr else { return PictureSizing::Fit };
+    if name != "IMAGE" {
+        return PictureSizing::Fit;
+    }
+    let literal = |i: usize| match args.get(i) {
+        None | Some(Expr::Missing) => Some(None),
+        Some(Expr::Number(n)) if n.is_finite() && n.fract() == 0.0 => Some(Some(*n as i64)),
+        _ => None,
+    };
+    let (Some(code), Some(height), Some(width)) = (literal(2), literal(3), literal(4)) else { return PictureSizing::Fit };
+    PictureSizing::from_code(code.unwrap_or(0), height, width).unwrap_or_default()
 }
 
 fn read_formula(cx: &mut Ctx<'_>, st: &mut RowState, f: &El, pos: CellRef, dynamic: bool) -> Option<Formula> {

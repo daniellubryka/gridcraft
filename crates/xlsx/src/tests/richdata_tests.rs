@@ -68,7 +68,7 @@ fn jpeg() -> Vec<u8> {
 }
 
 fn picture(data: Vec<u8>, mime: &str, alt: &str) -> CellPicture {
-    CellPicture { data, mime: mime.into(), alt: alt.into() }
+    CellPicture { data, mime: mime.into(), alt: alt.into(), sizing: Default::default() }
 }
 
 /// A1 vm2 -> block1/type2/v0 -> future0 -> rv1 -> structure1 -> relation1.
