@@ -192,6 +192,8 @@ pub struct DocState {
     pub redo: Vec<HistoryEntry>,
     pub path: Option<String>,
     pub saved: Arc<Workbook>,
+    /// Built by [`DocState::from_saved`]: nothing was calculated, every value is the file's.
+    pub(crate) values_from_file: bool,
     pub revision: u64,
     /// Identifies this open workbook for the rest of the session: it never changes while the
     /// workbook is open (saving, renaming, reordering) and is never reused for another one.
@@ -287,13 +289,14 @@ fn trim_to_budget(history: &mut Vec<HistoryEntry>, byte_budget: usize) {
     }
 }
 
-/// Whether any formula in `wb` calls WEBSERVICE.
+/// Whether any formula or defined name in `wb` calls WEBSERVICE.
 fn calls_webservice(wb: &Workbook) -> bool {
-    wb.sheets.iter().any(|s| {
-        s.used_range().is_some_and(|r| {
-            s.cells.iter_range(r).any(|(_, c)| c.formula.as_ref().is_some_and(|f| f.text.to_ascii_uppercase().contains("WEBSERVICE")))
+    wb.names.iter().any(|n| n.formula.to_ascii_uppercase().contains("WEBSERVICE"))
+        || wb.sheets.iter().any(|s| {
+            s.used_range().is_some_and(|r| {
+                s.cells.iter_range(r).any(|(_, c)| c.formula.as_ref().is_some_and(|f| f.text.to_ascii_uppercase().contains("WEBSERVICE")))
+            })
         })
-    })
 }
 
 impl DocState {
@@ -311,7 +314,9 @@ impl DocState {
     pub fn from_saved(wb: Workbook, path: Option<String>, title: String, trust: Trust) -> DocState {
         let mut calc = Calc::new();
         calc.rebuild(&wb);
-        Self::with_calc(wb, calc, path, title, trust)
+        let mut d = Self::with_calc(wb, calc, path, title, trust);
+        d.values_from_file = true;
+        d
     }
     fn with_calc(wb: Workbook, calc: Calc, path: Option<String>, title: String, trust: Trust) -> DocState {
         let scripts_trusted = !cmd::extra::has_scripts(&wb);
@@ -332,6 +337,7 @@ impl DocState {
             unlocked_ranges: vec![],
             content_kind: None,
             scripts_trusted,
+            values_from_file: false,
             trust,
             touched: None,
             edits: None,
@@ -601,7 +607,9 @@ impl Session {
         d.calc.set_web_fetcher(self.web_fetcher.clone());
         // `DocState::new` calculated before the fetcher was here, so a WEBSERVICE formula answered
         // `#VALUE!`: calculate once more, and only for a workbook that has one.
-        if self.web_fetcher.is_some() && calls_webservice(&d.wb) {
+        // A document made by `DocState::from_saved` keeps the values its file holds until an edit
+        // reaches them, so it is left alone.
+        if self.web_fetcher.is_some() && !d.values_from_file && calls_webservice(&d.wb) {
             let clean = !d.is_dirty();
             let mut wb = (*d.wb).clone();
             d.calc.recalc_all(&mut wb);

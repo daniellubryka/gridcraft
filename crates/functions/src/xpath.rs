@@ -18,9 +18,10 @@ use crate::xml::{Dom, Kind};
 const FUEL: usize = 4_000_000;
 /// Deepest nesting of parentheses, predicates and calls.
 const MAX_DEPTH: usize = 64;
-/// Operators one expression may chain (`1+1+1…`, `a|b|c…`) across all open levels. Each adds a
-/// level to the syntax tree, which evaluation and dropping walk recursively.
-const MAX_CHAIN: usize = 256;
+/// Binary and union operators one expression may hold in all. Each can add a level to the syntax
+/// tree, which evaluation and dropping walk recursively; counting every operator (not only the
+/// chain being parsed) bounds the height however groups nest around finished subtrees.
+const MAX_OPS: usize = 128;
 
 // ---------------------------------------------------------------------------------------------
 // Lexer
@@ -315,7 +316,7 @@ enum Expr {
 pub(crate) struct XPath(Expr);
 
 pub(crate) fn parse(src: &str) -> Option<XPath> {
-    let mut p = Parser { toks: lex(src)?, pos: 0, depth: 0, chain: 0 };
+    let mut p = Parser { toks: lex(src)?, pos: 0, depth: 0, ops: 0 };
     let e = p.expr()?;
     (p.pos == p.toks.len()).then_some(XPath(e))
 }
@@ -324,8 +325,8 @@ struct Parser {
     toks: Vec<Tok>,
     pos: usize,
     depth: usize,
-    /// Operators chained so far in the levels being parsed ([`MAX_CHAIN`]).
-    chain: usize,
+    /// Binary and union operators parsed so far ([`MAX_OPS`]).
+    ops: usize,
 }
 
 const NODE_TYPES: [&str; 4] = ["text", "node", "comment", "processing-instruction"];
@@ -365,17 +366,14 @@ impl Parser {
             return self.unary();
         }
         let mut left = self.binary(level + 1)?;
-        let mut chained = 0;
         while let Some(op) = self.operator(level) {
-            chained += 1;
-            self.chain += 1;
-            if self.chain > MAX_CHAIN {
+            self.ops += 1;
+            if self.ops > MAX_OPS {
                 return None;
             }
             let right = self.binary(level + 1)?;
             left = Expr::Bin(op, Box::new(left), Box::new(right));
         }
-        self.chain -= chained;
         Some(left)
     }
 
@@ -405,17 +403,14 @@ impl Parser {
             return self.nested(|p| p.unary()).map(|e| Expr::Neg(Box::new(e)));
         }
         let mut left = self.path()?;
-        let mut chained = 0;
         while self.eat(&Tok::Pipe) {
-            chained += 1;
-            self.chain += 1;
-            if self.chain > MAX_CHAIN {
+            self.ops += 1;
+            if self.ops > MAX_OPS {
                 return None;
             }
             let right = self.path()?;
             left = Expr::Union(Box::new(left), Box::new(right));
         }
-        self.chain -= chained;
         Some(left)
     }
 
@@ -1280,12 +1275,29 @@ mod tests {
         assert!(parse(&union).is_none());
         let mixed = format!("{}1{}", "(".repeat(30), ")".repeat(30));
         assert!(parse(&mixed).is_some());
-        // A long chain that also nests still parses while within both limits.
+        // Finished groups count too: 60 nested groups of 100 additions each is far past the limit.
+        let mut grouped = "1".to_string();
+        for _ in 0..60 {
+            grouped = format!("({grouped}{})", "+1".repeat(100));
+        }
+        assert!(parse(&grouped).is_none());
+        // A long chain that also groups still parses while within the limit.
         assert!(parse(&format!("1{}+(2+3)", "+1".repeat(100))).is_some());
-        // A long but sane chain still works.
-        let sane = format!("1{}", "+1".repeat(200));
-        let dom = xml::parse("<a/>").unwrap();
-        assert_eq!(evaluate(&dom, &parse(&sane).unwrap()), Some(vec![Value::from(201.0)]));
+        // The largest accepted expressions evaluate and drop on a small stack.
+        std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(|| {
+                let dom = xml::parse("<r><a>1</a></r>").unwrap();
+                let sum = format!("1{}", "+1".repeat(MAX_OPS - 1));
+                assert_eq!(evaluate(&dom, &parse(&sum).unwrap()), Some(vec![Value::from(MAX_OPS as f64)]));
+                let union = format!("//a{}", "|//a".repeat(MAX_OPS - 1));
+                assert_eq!(evaluate(&dom, &parse(&union).unwrap()), Some(vec![Value::from(1.0)]));
+                let nested = format!("{}{sum}{}", "not(".repeat(60), ")".repeat(60));
+                assert!(evaluate(&dom, &parse(&nested).unwrap()).is_some());
+            })
+            .unwrap()
+            .join()
+            .unwrap();
         let preds = format!("//a{}", "[1]".repeat(5000));
         assert!(parse(&preds).is_some());
         let nested_preds = format!("//a{}1{}", "[b".repeat(1000), "]".repeat(1000));
