@@ -1,6 +1,6 @@
 # Function parity: worksheet functions and formulas
 
-> **Last reviewed:** 2026-10-31 · **Last updated:** 2026-10-31 · **Change:** minor (IMAGE added: shows an https picture in the cell through the host's `ImageFetcher`, off by default, with Excel's sizing 0–3; earlier: YEARFRAC basis 0 February-end rule, MOD quotient limit, PERCENTRANK significance; earlier: edge cases matched to Excel: base conversions, BITLSHIFT/BITRSHIFT, UNICHAR noncharacters, UPPER/LOWER/PROPER casing, FIXED/DOLLAR output, F/T/GAMMA/WEIBULL/BETA distributions, BINOM trial cap, HARMEAN; earlier: ECMA.CEILING listed with USDOLLAR as not on Microsoft's list; earlier: IMSQRT reproduces the stray real part Excel gives for negative reals) · **Target:** Microsoft Excel (Microsoft 365), Excel for Mac 16.113.4
+> **Last reviewed:** 2026-10-31 · **Last updated:** 2026-11-01 · **Change:** minor (IMAGE added: shows an https picture in the cell through the host's `ImageFetcher`, off by default, with Excel's sizing 0–3; earlier: YEARFRAC basis 0 February-end rule, MOD quotient limit, PERCENTRANK significance; earlier: edge cases matched to Excel: base conversions, BITLSHIFT/BITRSHIFT, UNICHAR noncharacters, UPPER/LOWER/PROPER casing, FIXED/DOLLAR output, F/T/GAMMA/WEIBULL/BETA distributions, BINOM trial cap, HARMEAN; earlier: ECMA.CEILING listed with USDOLLAR as not on Microsoft's list; earlier: IMSQRT reproduces the stray real part Excel gives for negative reals) · **Target:** Microsoft Excel (Microsoft 365), Excel for Mac 16.113.4
 
 Excel's worksheet functions, category by category, against GridCraft's function library. Part of
 [target-app-parity.md](target-app-parity.md); gaps feed [gaps.md](gaps.md).
@@ -29,7 +29,7 @@ Excel's worksheet functions, category by category, against GridCraft's function 
 
 ## Coverage
 
-**Measured: 513 / 523 by name (98.1%); 504 / 523 working (96.4%).**
+**Measured: 514 / 523 by name (98.3%); 505 / 523 working (96.6%).**
 
 | Category | Excel | Ours | Working | % working | Missing |
 |---|---|---|---|---|---|
@@ -48,7 +48,7 @@ Excel's worksheet functions, category by category, against GridCraft's function 
 | Web | 3 | 3 | 1 | 33% | (WEBSERVICE, FILTERXML are stubs; ENCODEURL works) |
 | Add-in and Automation | 3 | 1 | 1 | 33% | CALL, REGISTER.ID |
 | AI and Python | 2 | 0 | 0 | 0% | COPILOT, PY |
-| **Total** | **523** | **505** | **496** | **94.8%** | 18 missing, 9 stubs |
+| **Total** | **523** | **506** | **497** | **95.0%** | 17 missing, 9 stubs |
 
 By the Excel version that introduced them (working / total): before 2010 346 / 360, 2010
 56 / 56, 2013 49 / 51, 2016 1 / 5, 2019 6 / 6, 2021 11 / 11, 2024 22 / 23, Microsoft 365 5 / 11.
@@ -67,7 +67,7 @@ This improves series preparation; it does not change the model-fitting or season
 | FORECAST.ETS family (4) | yes | 4–6 h | AAA exponential smoothing with seasonality detection; needed for Forecast Sheet too |
 | ODDFPRICE, ODDFYIELD, ODDLPRICE, ODDLYIELD | yes | 2–4 h | Odd first/last period bond maths |
 | GETPIVOTDATA | yes | 2–3 h | Needs the pivot engine's result cache; also the "Generate GetPivotData" option |
-| IMAGE | partly | — | Done: https URLs, argument rules, sizing 0–3 (fit, fill, original size, custom), PNG/JPEG/GIF/BMP, picture shown in the cell and kept through XLSX. Fetching goes through the host's `ImageFetcher`: no fetcher or a refused URL is `#BLOCKED!` (none ships, so that is what the app shows), a failed request is `#CONNECT!` |
+| IMAGE | partly | — | Done: https URLs, argument rules, sizing 0–3 (fit, fill, original size, custom), PNG/JPEG/GIF/BMP, picture shown in the cell and kept through XLSX (PNG and JPEG up to 8192 px a side; other pictures are left out of the file and fetched again on open). Fetching goes through the host's `ImageFetcher`: no fetcher or a refused URL is `#BLOCKED!` (none ships, so that is what the app shows), a failed request is `#CONNECT!` |
 | CUBE* (7), WEBSERVICE, FILTERXML | partly | 4–8 h | FILTERXML can work offline; CUBE needs an OLAP/data-model source |
 | TRANSLATE, DETECTLANGUAGE, STOCKHISTORY, COPILOT, PY | no (cloud) | — | Microsoft cloud services; open equivalents only by owner decision |
 | CALL, REGISTER.ID, RTD | no | — | Native DLL/COM calls; not portable or safe |
@@ -133,7 +133,7 @@ workbooks; results checked in as data, not Excel files) and fixing what it finds
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-11-01 | minor | IMAGE added: validates source (https, 2048 characters), alt text, sizing 0–3 and height/width, fetches the bytes through the host's `ImageFetcher`, accepts PNG, JPEG, GIF and BMP up to 10 MiB, and shows the picture in the cell with its sizing. Without a fetcher or for a refused URL it is `#BLOCKED!`, for a failed request `#CONNECT!` (new error values, ERROR.TYPE 10 and 11, cached in files as `#VALUE!`). Formula pictures keep their formula through XLSX |
+| 2026-11-01 | minor | IMAGE added: validates source (https, 2048 characters), alt text, sizing 0–3 and height/width, fetches the bytes through the host's `ImageFetcher`, accepts PNG, JPEG, GIF and BMP up to 10 MiB, and shows the picture in the cell with its sizing. Files hold the PNG and JPEG pictures the format allows; others are left out and fetched again on open. Without a fetcher or for a refused URL it is `#BLOCKED!`, for a failed request `#CONNECT!` (new error values, ERROR.TYPE 10 and 11, cached in files as `#VALUE!`). Formula pictures keep their formula through XLSX |
 | 2026-10-31 | minor | BIN2*, HEX2* and OCT2* reject surrounding spaces and tabs in source strings with `#NUM!`, matching Excel; plain unpadded values remain valid |
 | 2026-10-31 | minor | DEC2BIN, DEC2HEX and DEC2OCT validate `places` before returning negative two's-complement output, and Boolean places return `#VALUE!`, matching Excel |
 | 2026-10-31 | minor | BITLSHIFT and BITRSHIFT return `0` for zero operands shifted beyond 53 bits in either direction; nonzero operands retain the `#NUM!` limit, matching Excel |

@@ -37,7 +37,7 @@ pub struct Calc {
     /// Cells whose formulas have errors from cycles.
     pub circular: Vec<Key>,
     pub last_recalc_cells: usize,
-    /// Answers IMAGE; without one it is `#VALUE!`.
+    /// Answers IMAGE; without one it is `#BLOCKED!`.
     images: Option<std::sync::Arc<dyn gridcraft_functions::ImageFetcher>>,
 }
 

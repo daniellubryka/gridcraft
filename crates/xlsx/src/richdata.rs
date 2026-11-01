@@ -23,6 +23,12 @@ const MAX_XML: u64 = 16 * 1024 * 1024;
 const MAX_PIXELS: u64 = 16_000_000;
 
 /// Header dimensions bound decode allocations in consumers. Full decoding is left to the UI.
+/// Whether a cell picture can be written to a file: PNG or JPEG, at most 8192 pixels a side and
+/// 16 million pixels.
+pub(crate) fn can_store(data: &[u8]) -> bool {
+    image_type(data).is_some()
+}
+
 fn image_type(data: &[u8]) -> Option<(&'static str, &'static str)> {
     let dimensions = if data.len() >= 33 && data.starts_with(b"\x89PNG\r\n\x1a\n") && data.get(8..16)? == b"\0\0\0\rIHDR" {
         let w = u32::from_be_bytes(data.get(16..20)?.try_into().ok()?);

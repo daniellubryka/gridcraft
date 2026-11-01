@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub const MAX_PICTURE_PIXELS: i64 = 16_384;
 
 /// How a picture is sized in its cell.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum PictureSizing {
     /// Fits inside the cell, keeping its aspect ratio (IMAGE sizing 0).

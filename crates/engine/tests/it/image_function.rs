@@ -26,6 +26,7 @@ impl ImageFetcher for CannedImages {
         match url {
             "https://img.test/logo.png" => Ok(PNG.to_vec()),
             "https://img.test/vector.svg" => Ok(b"<svg/>".to_vec()),
+            "https://img.test/anim.gif" => Ok(b"GIF89a\x01\x00\x01\x00\x00\x00\x00;".to_vec()),
             "https://intranet.test/logo.png" => Err(FetchError::Blocked),
             _ => Err(FetchError::Connect),
         }
@@ -151,4 +152,21 @@ fn pictures_survive_opening_a_file_with_a_fetcher() {
     let a1 = CellRef::parse("A1").unwrap();
     assert!(doc.wb.sheet(0).unwrap().cell_pictures.contains_key(&a1));
     assert_eq!(doc.wb.sheet(0).unwrap().value(a1), Value::from("Logo"));
+}
+
+/// A picture the file format cannot hold (here a GIF) does not stop the save: the formula and its
+/// value are written without it, and the picture is fetched again when the file opens.
+#[test]
+fn unstorable_picture_is_left_out_of_the_file() {
+    let mut s = Session::new();
+    s.new_workbook();
+    s.set_image_fetcher(Some(Arc::new(CannedImages)));
+    set(&mut s, "A1", "=IMAGE(\"https://img.test/anim.gif\",\"Anim\")");
+    assert!(has_picture(&s, "A1"));
+    let bytes = gridcraft_xlsx::write_xlsx(&s.doc().unwrap().wb).unwrap();
+    let (wb, _) = gridcraft_xlsx::read_xlsx(&bytes).unwrap();
+    let sheet = wb.sheet(0).unwrap();
+    let a1 = CellRef::parse("A1").unwrap();
+    assert!(!sheet.cell_pictures.contains_key(&a1));
+    assert!(sheet.cell(a1).and_then(|c| c.formula.as_ref()).is_some());
 }

@@ -421,7 +421,7 @@ pub(crate) fn specs() -> Vec<FnSpec> {
             Lookup,
             S,
             "IMAGE(source, [alt_text], [sizing], [height], [width])",
-            "Shows the picture at an https URL in the cell (#VALUE! when it cannot be fetched or is not a PNG, JPEG, GIF or BMP).",
+            "Shows the picture at an https URL in the cell (#BLOCKED! when fetching is not allowed, #CONNECT! when the request fails, #VALUE! for invalid arguments or a picture that is not PNG, JPEG, GIF or BMP).",
             crate::image::image
         ),
         f!("CHOOSE", 2, VAR, Lookup, A, "CHOOSE(index_num, value1, [value2], ...)", "Picks a value from the list by its position.", choose),

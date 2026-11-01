@@ -7,9 +7,9 @@ use gridcraft_core::date::{serial_from_ymd, time_fraction};
 use gridcraft_core::{CellError, CellRef, DateSystem, MAX_COLS, MAX_ROWS, PictureSizing, RangeRef, Value};
 use gridcraft_formula::Expr;
 use gridcraft_model::{
-    AutoFilter, Cell, CfOperator, CfRule, CfValueKind, Comment, CondFormat, EditRange, ErrorStyle, FilterCriterion, Formula, Hyperlink, LineInfo,
-    NoteBox, NoteCorner, Orientation, PasswordHash, Sheet, SheetProtection, Sparkline, SparklineKind, Table, TableColumn, TotalsFn, Validation,
-    ValidationKind, XmlColumnPr,
+    AutoFilter, Cell, CellPicture, CfOperator, CfRule, CfValueKind, Comment, CondFormat, EditRange, ErrorStyle, FilterCriterion, Formula, Hyperlink,
+    LineInfo, NoteBox, NoteCorner, Orientation, PasswordHash, Sheet, SheetProtection, Sparkline, SparklineKind, Table, TableColumn, TotalsFn,
+    Validation, ValidationKind, XmlColumnPr,
 };
 
 use crate::IoError;
@@ -519,7 +519,10 @@ fn read_cell(cx: &mut Ctx<'_>, sheet: &mut Sheet, st: &mut RowState, c: &El, pos
         // stays until then, as the cell's last result.
         let formula = c.child("f").and_then(|f| read_formula(cx, st, f, pos, false));
         let sizing = formula.as_ref().map(image_sizing).unwrap_or_default();
-        Arc::make_mut(&mut picture).sizing = sizing;
+        if sizing != picture.sizing {
+            let key = (Arc::as_ptr(&picture) as usize, sizing);
+            picture = Arc::clone(cx.sized_pictures.entry(key).or_insert_with(|| Arc::new(CellPicture { sizing, ..(*picture).clone() })));
+        }
         sheet.set_picture(pos, picture);
         if let Some(formula) = formula {
             let value = sheet.value(pos);

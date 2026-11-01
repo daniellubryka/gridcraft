@@ -64,7 +64,7 @@ pub(super) struct PassHost<'a> {
     stack_top: usize,
     /// Whether an evaluation ran past the stack budget since the innermost formula started.
     out_of_stack: bool,
-    /// Answers WEBSERVICE; `None` leaves it `#VALUE!`.
+    /// Answers IMAGE; `None` makes it `#BLOCKED!`.
     pub(super) images: Option<std::sync::Arc<dyn gridcraft_functions::ImageFetcher>>,
     /// Pictures IMAGE produced this pass, by the cell that holds the formula. Only the last one a
     /// formula produced counts: it is cleared when the formula is evaluated again.

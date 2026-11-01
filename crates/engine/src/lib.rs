@@ -546,7 +546,7 @@ impl Session {
         Session::default()
     }
     /// Lets IMAGE fetch pictures through `fetcher` in every open and future workbook (`None`: it is
-    /// `#VALUE!`, which is the default). Without a host that installs one, no workbook can make a
+    /// `#BLOCKED!`, which is the default; a fetcher may also answer `#BLOCKED!` or `#CONNECT!`). Without a host that installs one, no workbook can make a
     /// network request. Formulas already calculated keep their pictures until they recalculate.
     pub fn set_image_fetcher(&mut self, fetcher: Option<Arc<dyn calc::ImageFetcher>>) {
         for d in &mut self.docs {

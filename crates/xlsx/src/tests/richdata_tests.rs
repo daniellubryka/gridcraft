@@ -270,3 +270,24 @@ fn picture_metadata_limits_and_relationship_read_errors_do_not_block_workbooks()
         assert!(report.warnings.iter().any(|w| w.contains("cell-picture data could not be read")), "{:?}", report.warnings);
     }
 }
+
+/// Formula cells that share one stored picture and ask for the same sizing share one copy of its
+/// bytes after a read: a file pointing many IMAGE cells at one large picture must not multiply it.
+#[test]
+fn formula_pictures_with_one_sizing_share_their_bytes() {
+    let mut wb = Workbook::new();
+    let shared = Arc::new(CellPicture { sizing: gridcraft_core::PictureSizing::Fill, ..picture(png(), "image/png", "Logo") });
+    let sheet = wb.sheet_mut(0).unwrap();
+    for cell in ["A1", "A2", "A3"] {
+        sheet.set_picture(at(cell), Arc::clone(&shared));
+        let value = sheet.value(at(cell));
+        sheet.cells.set(at(cell), Cell { value, ..Cell::formula(Formula::new("IMAGE(\"https://img.test/logo.png\",\"Logo\",1)")) });
+    }
+    let (back, _) = read_xlsx(&write_xlsx(&wb).unwrap()).unwrap();
+    let pictures = &back.sheet(0).unwrap().cell_pictures;
+    let a1 = &pictures[&at("A1")];
+    assert_eq!(a1.sizing, gridcraft_core::PictureSizing::Fill);
+    for cell in ["A2", "A3"] {
+        assert!(Arc::ptr_eq(a1, &pictures[&at(cell)]), "{cell}");
+    }
+}
