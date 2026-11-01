@@ -341,3 +341,25 @@ fn opening_calculates_only_formulas_that_reach_webservice() {
     assert_eq!(value(&s, "A1"), Value::from("hello"));
     assert_eq!(s.doc().unwrap().calc.last_recalc_cells, 1, "only the WEBSERVICE cell is calculated, not A2");
 }
+
+/// Dynamic formulas (INDIRECT, OFFSET, volatile ones) that nothing ties to WEBSERVICE stay out of
+/// the open-time pass too, though every ordinary edit recalculates them.
+#[test]
+fn opening_leaves_unrelated_dynamic_formulas_alone() {
+    let mut writer = Session::new();
+    writer.execute("file.new", json!({})).unwrap();
+    set(&mut writer, "A1", "=WEBSERVICE(\"https://api.test/hello\")");
+    set(&mut writer, "A2", "=INDIRECT(\"C1\")");
+    set(&mut writer, "A3", "=RAND()");
+    set(&mut writer, "A4", "=OFFSET(C1,0,0)");
+    let wb = (*writer.doc().unwrap().wb).clone();
+
+    let mut s = Session::new();
+    s.set_web_fetcher(Some(Arc::new(CannedWeb)));
+    let d = gridcraft_engine::DocState::new(wb, None, "dynamic".into(), gridcraft_engine::Trust::FromFile);
+    let rand_before = d.wb.sheet(0).unwrap().value(CellRef::parse("A3").unwrap());
+    s.add_document(d);
+    assert_eq!(value(&s, "A1"), Value::from("hello"));
+    assert_eq!(value(&s, "A3"), rand_before, "RAND() must not be recalculated by the open-time pass");
+    assert_eq!(s.doc().unwrap().calc.last_recalc_cells, 1, "only the WEBSERVICE cell is calculated");
+}

@@ -642,7 +642,7 @@ impl Session {
             if !cells.is_empty() {
                 let clean = !d.is_dirty();
                 let mut wb = (*d.wb).clone();
-                d.calc.cells_changed(&mut wb, &cells);
+                d.calc.recalc_cells(&mut wb, &cells);
                 d.wb = Arc::new(wb);
                 if clean {
                     d.saved = d.wb.clone();

@@ -314,7 +314,23 @@ impl Calc {
         }
     }
 
+    /// Recalculates `cells`, whose formulas and graph entries are as they were, and the formulas
+    /// that depend on them. Unlike [`Calc::cells_changed`] it leaves out the dynamic formulas
+    /// (INDIRECT, OFFSET, volatile ones) that every edit recalculates, so nothing unrelated moves.
+    /// In manual calculation only the cells themselves are evaluated.
+    pub fn recalc_cells(&mut self, wb: &mut Workbook, cells: &[Key]) {
+        let own: Vec<Key> = cells.iter().copied().filter(|k| self.graph.nodes.contains_key(k)).collect();
+        let dirty = if wb.calc.mode == CalcMode::Manual { own } else { self.closure(&own, false) };
+        self.run(wb, dirty, false);
+    }
+
     fn dirty_closure(&self, _wb: &Workbook, seeds: &[Key]) -> Vec<Key> {
+        self.closure(seeds, true)
+    }
+
+    /// `seeds` that are formulas, the formulas that read them, and so on; with `dynamic`, every
+    /// dynamic formula and what reads it too.
+    fn closure(&self, seeds: &[Key], dynamic: bool) -> Vec<Key> {
         let mut seen: HashSet<Key> = HashSet::default();
         let mut queue: VecDeque<Key> = VecDeque::new();
         for k in seeds {
@@ -329,9 +345,11 @@ impl Calc {
                 }
             }
         }
-        for k in &self.graph.dynamic {
-            if seen.insert(*k) {
-                queue.push_back(*k);
+        if dynamic {
+            for k in &self.graph.dynamic {
+                if seen.insert(*k) {
+                    queue.push_back(*k);
+                }
             }
         }
         let mut deps = Vec::new();
