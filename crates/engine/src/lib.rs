@@ -457,6 +457,8 @@ pub type TextWidth = Arc<dyn Fn(&str, &model::Font, bool) -> f32 + Send + Sync>;
 #[derive(Default)]
 pub struct Session {
     docs: Vec<DocState>,
+    /// Answers WEBSERVICE in every workbook ([`Session::set_web_fetcher`]).
+    web_fetcher: Option<Arc<dyn calc::WebFetcher>>,
     /// Index in `docs` of the active window's workbook.
     active: usize,
     /// Windows on the open workbooks ([`windows`]); every workbook has at least one.
@@ -531,6 +533,15 @@ impl Session {
     pub fn new() -> Session {
         Session::default()
     }
+    /// Lets WEBSERVICE fetch through `fetcher` in every open and future workbook (`None`: it is
+    /// `#VALUE!`, which is the default). Without a host that installs one, no workbook can make a
+    /// network request. Formulas already calculated keep their values until they recalculate.
+    pub fn set_web_fetcher(&mut self, fetcher: Option<Arc<dyn calc::WebFetcher>>) {
+        for d in &mut self.docs {
+            d.calc.set_web_fetcher(fetcher.clone());
+        }
+        self.web_fetcher = fetcher;
+    }
     pub fn documents(&self) -> &[DocState] {
         &self.docs
     }
@@ -576,8 +587,9 @@ impl Session {
         cmd::locked_cell_error(sh, at, &d.unlocked_ranges)
     }
     /// Opens a workbook in a new window, which becomes the active one.
-    pub fn add_document(&mut self, d: DocState) -> usize {
+    pub fn add_document(&mut self, mut d: DocState) -> usize {
         let uid = d.uid;
+        d.calc.set_web_fetcher(self.web_fetcher.clone());
         self.docs.push(d);
         let w = self.push_window(uid);
         self.activate_window(w);

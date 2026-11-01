@@ -37,11 +37,13 @@ pub struct Calc {
     /// Cells whose formulas have errors from cycles.
     pub circular: Vec<Key>,
     pub last_recalc_cells: usize,
+    /// Answers WEBSERVICE; without one it is `#VALUE!`.
+    web: Option<std::sync::Arc<dyn gridcraft_functions::WebFetcher>>,
 }
 
 impl Default for Calc {
     fn default() -> Self {
-        Calc { graph: Graph::default(), rng: 0x9E37_79B9_7F4A_7C15, fixed_now: None, circular: vec![], last_recalc_cells: 0 }
+        Calc { graph: Graph::default(), rng: 0x9E37_79B9_7F4A_7C15, fixed_now: None, circular: vec![], last_recalc_cells: 0, web: None }
     }
 }
 
@@ -122,6 +124,12 @@ impl Calc {
     }
 
     /// Rebuilds the graph from scratch.
+    /// Installs (or with `None` removes) what answers WEBSERVICE. Cells already calculated keep
+    /// their values until they next recalculate.
+    pub fn set_web_fetcher(&mut self, fetcher: Option<std::sync::Arc<dyn gridcraft_functions::WebFetcher>>) {
+        self.web = fetcher;
+    }
+
     pub fn rebuild(&mut self, wb: &Workbook) {
         self.graph = Graph::default();
         let mut circ = Vec::new();
@@ -343,6 +351,7 @@ impl Calc {
             let tp = prof_now();
             let (results, spills, cycles) = {
                 let mut host = PassHost::new(wb, &exprs, &mut rng, now);
+                host.web = self.web.clone();
                 host.iterate = wb.calc.iterative;
                 for k in &dirty {
                     host.calculate(*k);
