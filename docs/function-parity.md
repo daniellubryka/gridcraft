@@ -51,8 +51,8 @@ Excel's worksheet functions, category by category, against GridCraft's function 
 | AI and Python | 2 | 0 | 0 | 0% | COPILOT, PY |
 | **Total** | **523** | **513** | **505** | **96.6%** | 10 missing, 8 stubs |
 
-By the Excel version that introduced them (working / total): before 2010 346 / 360, 2010
-56 / 56, 2013 49 / 51, 2016 1 / 5, 2019 6 / 6, 2021 11 / 11, 2024 22 / 23, Microsoft 365 5 / 11.
+By the Excel version that introduced them (working / total): before 2010 348 / 360, 2010
+56 / 56, 2013 50 / 51, 2016 5 / 5, 2019 6 / 6, 2021 11 / 11, 2024 22 / 23, Microsoft 365 7 / 11.
 Dynamic-array and LAMBDA-era functions (FILTER, SORT, UNIQUE, XLOOKUP, VSTACK, TAKE, GROUPBY,
 PIVOTBY, REGEXTEST…) are all present.
 
