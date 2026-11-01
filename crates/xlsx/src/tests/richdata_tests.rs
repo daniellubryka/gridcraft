@@ -291,3 +291,20 @@ fn formula_pictures_with_one_sizing_share_their_bytes() {
         assert!(Arc::ptr_eq(a1, &pictures[&at(cell)]), "{cell}");
     }
 }
+
+/// A formula cell's picture past the 16 MiB per-picture limit is left out of the file instead of
+/// failing the save; the formula is kept.
+#[test]
+fn oversized_formula_picture_is_left_out_not_fatal() {
+    let mut wb = Workbook::new();
+    let mut data = png();
+    data.resize(17 * 1024 * 1024, 0);
+    let sheet = wb.sheet_mut(0).unwrap();
+    sheet.set_picture(at("A1"), Arc::new(picture(data, "image/png", "Big")));
+    let value = sheet.value(at("A1"));
+    sheet.cells.set(at("A1"), Cell { value, ..Cell::formula(Formula::new("IMAGE(\"https://img.test/big.png\")")) });
+    let (back, _) = read_xlsx(&write_xlsx(&wb).unwrap()).unwrap();
+    let sheet = back.sheet(0).unwrap();
+    assert!(!sheet.cell_pictures.contains_key(&at("A1")));
+    assert!(sheet.cell(at("A1")).and_then(|c| c.formula.as_ref()).is_some());
+}

@@ -521,7 +521,18 @@ fn read_cell(cx: &mut Ctx<'_>, sheet: &mut Sheet, st: &mut RowState, c: &El, pos
         let sizing = formula.as_ref().map(image_sizing).unwrap_or_default();
         if sizing != picture.sizing {
             let key = (Arc::as_ptr(&picture) as usize, sizing);
-            picture = Arc::clone(cx.sized_pictures.entry(key).or_insert_with(|| Arc::new(CellPicture { sizing, ..(*picture).clone() })));
+            if let Some(sized) = cx.sized_pictures.get(&key) {
+                picture = Arc::clone(sized);
+            } else if cx.sized_bytes.saturating_add(picture.data.len()) <= crate::richdata::MAX_IMAGES_TOTAL {
+                cx.sized_bytes = cx.sized_bytes.saturating_add(picture.data.len());
+                let sized = Arc::new(CellPicture { sizing, ..(*picture).clone() });
+                cx.sized_pictures.insert(key, Arc::clone(&sized));
+                picture = sized;
+            } else {
+                // Past the budget the picture keeps its stored sizing until the formula is
+                // calculated again.
+                cx.warn("some IMAGE pictures were shown fitted to their cells: too many picture sizes in one file");
+            }
         }
         sheet.set_picture(pos, picture);
         if let Some(formula) = formula {

@@ -17,18 +17,12 @@ const NS_RICH: &str = "http://schemas.microsoft.com/office/spreadsheetml/2017/ri
 const NS_IMAGE_REL: &str = "http://schemas.microsoft.com/office/spreadsheetml/2022/richvaluerel";
 const RICH_EXT: &str = "{3E2802C4-A4D2-4D8B-9148-E3BE6C30E623}";
 const MAX_IMAGE: u64 = 16 * 1024 * 1024;
-const MAX_IMAGES_TOTAL: usize = 128 * 1024 * 1024;
+pub(crate) const MAX_IMAGES_TOTAL: usize = 128 * 1024 * 1024;
 const MAX_RECORDS: usize = 100_000;
 const MAX_XML: u64 = 16 * 1024 * 1024;
 const MAX_PIXELS: u64 = 16_000_000;
 
 /// Header dimensions bound decode allocations in consumers. Full decoding is left to the UI.
-/// Whether a cell picture can be written to a file: PNG or JPEG, at most 8192 pixels a side and
-/// 16 million pixels.
-pub(crate) fn can_store(data: &[u8]) -> bool {
-    image_type(data).is_some()
-}
-
 fn image_type(data: &[u8]) -> Option<(&'static str, &'static str)> {
     let dimensions = if data.len() >= 33 && data.starts_with(b"\x89PNG\r\n\x1a\n") && data.get(8..16)? == b"\0\0\0\rIHDR" {
         let w = u32::from_be_bytes(data.get(16..20)?.try_into().ok()?);
@@ -265,11 +259,22 @@ fn read_value(
 pub struct PicturesOut {
     pictures: Vec<Arc<CellPicture>>,
     indices: HashMap<*const CellPicture, u32>,
+    /// Encoded bytes of `pictures`, against [`MAX_IMAGES_TOTAL`].
+    bytes: usize,
 }
 
 impl PicturesOut {
     pub fn is_empty(&self) -> bool {
         self.pictures.is_empty()
+    }
+    /// Whether `picture` can join the file without [`write`] refusing the workbook: already in it,
+    /// or a PNG/JPEG within the per-picture limits that still fits the record and byte budgets.
+    pub fn can_add(&self, picture: &Arc<CellPicture>) -> bool {
+        self.indices.contains_key(&Arc::as_ptr(picture))
+            || (image_type(&picture.data).is_some()
+                && picture.data.len() as u64 <= MAX_IMAGE
+                && self.bytes.saturating_add(picture.data.len()) <= MAX_IMAGES_TOTAL
+                && self.pictures.len() < MAX_RECORDS)
     }
     pub fn index(&mut self, picture: &Arc<CellPicture>) -> u32 {
         let key = Arc::as_ptr(picture);
@@ -277,6 +282,7 @@ impl PicturesOut {
             return *index;
         }
         let index = self.pictures.len().saturating_add(1) as u32;
+        self.bytes = self.bytes.saturating_add(picture.data.len());
         self.pictures.push(picture.clone());
         self.indices.insert(key, index);
         index

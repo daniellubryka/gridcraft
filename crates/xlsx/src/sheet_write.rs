@@ -704,9 +704,10 @@ fn write_sheet_views(s: &mut String, sheet: &Sheet, selected: bool) {
 
 fn write_cell(s: &mut String, input: CellWriteInput<'_>, sid: &dyn Fn(gridcraft_model::StyleId) -> u32, out: &mut Out) {
     let CellWriteInput { reference: c, cell, picture, header_override: ov, spill_value: extra, dynamic_range: dynamic } = input;
-    // A picture IMAGE fetched that the file format cannot hold (GIF, BMP, too large) is left out:
-    // the formula and its value are saved, and the picture is fetched again when the file opens.
-    let picture = picture.filter(|p| cell.and_then(|x| x.formula.as_ref()).is_none() || crate::richdata::can_store(&p.data));
+    // A picture IMAGE fetched that the file cannot hold (GIF, BMP, too large, past the workbook's
+    // picture budget) is left out: the formula and its value are saved, and the picture is fetched
+    // again when the file opens.
+    let picture = picture.filter(|p| cell.and_then(|x| x.formula.as_ref()).is_none() || out.cell_pictures.can_add(p));
     let style = cell.map(|x| sid(x.style)).unwrap_or(0);
     s.push_str("<c r=\"");
     push_a1(s, c);

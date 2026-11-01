@@ -37,6 +37,8 @@ pub struct Ctx<'a> {
     /// sizing, so cells that share a picture share its bytes. Keyed by the original's address,
     /// which `cell_pictures` keeps alive for the whole read.
     pub sized_pictures: HashMap<(usize, PictureSizing), Arc<CellPicture>>,
+    /// Bytes held by `sized_pictures`, against the same budget as the pictures themselves.
+    pub sized_bytes: usize,
     /// x14 conditional-format ids of the current sheet's data bars, with the index of the rule in `cond_formats`.
     pub cf_ext_ids: Vec<(String, usize)>,
     /// Whether GridCraft calculates a function, when the caller says: cell formulas wrapped by
@@ -255,6 +257,7 @@ pub fn read_xlsx<'a>(bytes: &'a [u8], known_function: Option<&'a dyn Fn(&str) ->
         num_fmts: Default::default(),
         cell_pictures: vec![],
         sized_pictures: HashMap::new(),
+        sized_bytes: 0,
         cf_ext_ids: vec![],
         known_function,
     };

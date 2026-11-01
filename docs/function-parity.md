@@ -34,11 +34,11 @@ Excel's worksheet functions, category by category, against GridCraft's function 
 | Category | Excel | Ours | Working | % working | Missing |
 |---|---|---|---|---|---|
 | Statistical | 111 | 111 | 111 | 100% | — |
-| Math and trigonometry | 80 | 79 | 79 | 99% | PERCENTOF |
+| Math and trigonometry | 80 | 80 | 80 | 100% | — |
 | Financial | 55 | 55 | 55 | 100% | — |
 | Engineering | 54 | 54 | 54 | 100% | — |
 | Text | 50 | 48 | 48 | 96% | DETECTLANGUAGE, TRANSLATE |
-| Lookup and reference | 40 | 37 | 37 | 93% | GETPIVOTDATA, RTD, TRIMRANGE |
+| Lookup and reference | 40 | 38 | 38 | 95% | GETPIVOTDATA, RTD |
 | Compatibility | 40 | 40 | 40 | 100% | — |
 | Date and time | 25 | 25 | 25 | 100% | — |
 | Information | 22 | 21 | 21 | 95% | STOCKHISTORY |
@@ -48,7 +48,7 @@ Excel's worksheet functions, category by category, against GridCraft's function 
 | Web | 3 | 3 | 1 | 33% | (WEBSERVICE, FILTERXML are stubs; ENCODEURL works) |
 | Add-in and Automation | 3 | 1 | 1 | 33% | CALL, REGISTER.ID |
 | AI and Python | 2 | 0 | 0 | 0% | COPILOT, PY |
-| **Total** | **523** | **506** | **497** | **95.0%** | 17 missing, 9 stubs |
+| **Total** | **523** | **514** | **505** | **96.6%** | 9 missing, 9 stubs |
 
 By the Excel version that introduced them (working / total): before 2010 346 / 360, 2010
 56 / 56, 2013 49 / 51, 2016 1 / 5, 2019 6 / 6, 2021 11 / 11, 2024 22 / 23, Microsoft 365 5 / 11.
@@ -133,7 +133,7 @@ workbooks; results checked in as data, not Excel files) and fixing what it finds
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-11-01 | minor | IMAGE added: validates source (https, 2048 characters), alt text, sizing 0–3 and height/width, fetches the bytes through the host's `ImageFetcher`, accepts PNG, JPEG, GIF and BMP up to 10 MiB, and shows the picture in the cell with its sizing. Files hold the PNG and JPEG pictures the format allows; others are left out and fetched again on open. Without a fetcher or for a refused URL it is `#BLOCKED!`, for a failed request `#CONNECT!` (new error values, ERROR.TYPE 10 and 11, cached in files as `#VALUE!`). Formula pictures keep their formula through XLSX |
+| 2026-11-01 | minor | IMAGE added: validates source (https, 2048 characters), alt text, sizing 0–3 and height/width, fetches the bytes through the host's `ImageFetcher`, accepts PNG, JPEG, GIF and BMP up to 10 MiB, and shows the picture in the cell with its sizing. Files hold the PNG and JPEG pictures the format allows; others are left out and fetched again on open. Without a fetcher or for a refused URL it is `#BLOCKED!`, for a failed request `#CONNECT!` (new error values, ERROR.TYPE 10 and 11, cached in files as `#VALUE!`). Formula pictures keep their formula through XLSX. Coverage totals reconciled: the Math and Lookup rows still listed PERCENTOF and TRIMRANGE as missing (both landed 2026-10-11), so rows, Total and the Measured line now agree at 514 / 523 by name, 505 working |
 | 2026-10-31 | minor | BIN2*, HEX2* and OCT2* reject surrounding spaces and tabs in source strings with `#NUM!`, matching Excel; plain unpadded values remain valid |
 | 2026-10-31 | minor | DEC2BIN, DEC2HEX and DEC2OCT validate `places` before returning negative two's-complement output, and Boolean places return `#VALUE!`, matching Excel |
 | 2026-10-31 | minor | BITLSHIFT and BITRSHIFT return `0` for zero operands shifted beyond 53 bits in either direction; nonzero operands retain the `#NUM!` limit, matching Excel |
