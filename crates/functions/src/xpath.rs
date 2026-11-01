@@ -18,6 +18,9 @@ use crate::xml::{Dom, Kind};
 const FUEL: usize = 4_000_000;
 /// Deepest nesting of parentheses, predicates and calls.
 const MAX_DEPTH: usize = 64;
+/// Operators one expression may chain (`1+1+1…`, `a|b|c…`) across all open levels. Each adds a
+/// level to the syntax tree, which evaluation and dropping walk recursively.
+const MAX_CHAIN: usize = 256;
 
 // ---------------------------------------------------------------------------------------------
 // Lexer
@@ -312,7 +315,7 @@ enum Expr {
 pub(crate) struct XPath(Expr);
 
 pub(crate) fn parse(src: &str) -> Option<XPath> {
-    let mut p = Parser { toks: lex(src)?, pos: 0, depth: 0 };
+    let mut p = Parser { toks: lex(src)?, pos: 0, depth: 0, chain: 0 };
     let e = p.expr()?;
     (p.pos == p.toks.len()).then_some(XPath(e))
 }
@@ -321,6 +324,8 @@ struct Parser {
     toks: Vec<Tok>,
     pos: usize,
     depth: usize,
+    /// Operators chained so far in the levels being parsed ([`MAX_CHAIN`]).
+    chain: usize,
 }
 
 const NODE_TYPES: [&str; 4] = ["text", "node", "comment", "processing-instruction"];
@@ -360,10 +365,17 @@ impl Parser {
             return self.unary();
         }
         let mut left = self.binary(level + 1)?;
+        let mut chained = 0;
         while let Some(op) = self.operator(level) {
+            chained += 1;
+            self.chain += 1;
+            if self.chain > MAX_CHAIN {
+                return None;
+            }
             let right = self.binary(level + 1)?;
             left = Expr::Bin(op, Box::new(left), Box::new(right));
         }
+        self.chain -= chained;
         Some(left)
     }
 
@@ -393,10 +405,17 @@ impl Parser {
             return self.nested(|p| p.unary()).map(|e| Expr::Neg(Box::new(e)));
         }
         let mut left = self.path()?;
+        let mut chained = 0;
         while self.eat(&Tok::Pipe) {
+            chained += 1;
+            self.chain += 1;
+            if self.chain > MAX_CHAIN {
+                return None;
+            }
             let right = self.path()?;
             left = Expr::Union(Box::new(left), Box::new(right));
         }
+        self.chain -= chained;
         Some(left)
     }
 
@@ -1255,6 +1274,18 @@ mod tests {
         // Nesting
         let deep = format!("{}1{}", "(".repeat(5000), ")".repeat(5000));
         assert!(parse(&deep).is_none());
+        let chain = format!("1{}", "+1".repeat(15_000));
+        assert!(parse(&chain).is_none());
+        let union = format!("//a{}", "|//a".repeat(15_000));
+        assert!(parse(&union).is_none());
+        let mixed = format!("{}1{}", "(".repeat(30), ")".repeat(30));
+        assert!(parse(&mixed).is_some());
+        // A long chain that also nests still parses while within both limits.
+        assert!(parse(&format!("1{}+(2+3)", "+1".repeat(100))).is_some());
+        // A long but sane chain still works.
+        let sane = format!("1{}", "+1".repeat(200));
+        let dom = xml::parse("<a/>").unwrap();
+        assert_eq!(evaluate(&dom, &parse(&sane).unwrap()), Some(vec![Value::from(201.0)]));
         let preds = format!("//a{}", "[1]".repeat(5000));
         assert!(parse(&preds).is_some());
         let nested_preds = format!("//a{}1{}", "[b".repeat(1000), "]".repeat(1000));

@@ -180,6 +180,15 @@ mod tests {
     }
 
     #[test]
+    fn filterxml_survives_very_long_operator_chains() {
+        let sum = format!("1{}", "+1".repeat(15_000));
+        let union = format!("//a{}", "|//a".repeat(15_000));
+        for path in [sum, union] {
+            assert_eq!(ev("FILTERXML", vec![t("<r><a>1</a></r>"), t(&path)]), Value::Error(CellError::Value));
+        }
+    }
+
+    #[test]
     fn filterxml_errors() {
         for (xml, path) in [("<r/>", "//a"), ("<r>", "//r"), ("<r/>", "//"), ("", "//r"), ("<r/>", ""), ("<r/>", "1 div 0")] {
             assert_eq!(ev("FILTERXML", vec![t(xml), t(path)]), Value::Error(CellError::Value), "{xml} {path}");

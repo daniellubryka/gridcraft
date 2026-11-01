@@ -287,6 +287,15 @@ fn trim_to_budget(history: &mut Vec<HistoryEntry>, byte_budget: usize) {
     }
 }
 
+/// Whether any formula in `wb` calls WEBSERVICE.
+fn calls_webservice(wb: &Workbook) -> bool {
+    wb.sheets.iter().any(|s| {
+        s.used_range().is_some_and(|r| {
+            s.cells.iter_range(r).any(|(_, c)| c.formula.as_ref().is_some_and(|f| f.text.to_ascii_uppercase().contains("WEBSERVICE")))
+        })
+    })
+}
+
 impl DocState {
     /// A document for `wb`, which came from where `trust` says: [`Trust::FromFile`] for anything
     /// read from bytes (a file, a download, a recovery copy), [`Trust::Local`] only for a workbook
@@ -590,6 +599,17 @@ impl Session {
     pub fn add_document(&mut self, mut d: DocState) -> usize {
         let uid = d.uid;
         d.calc.set_web_fetcher(self.web_fetcher.clone());
+        // `DocState::new` calculated before the fetcher was here, so a WEBSERVICE formula answered
+        // `#VALUE!`: calculate once more, and only for a workbook that has one.
+        if self.web_fetcher.is_some() && calls_webservice(&d.wb) {
+            let clean = !d.is_dirty();
+            let mut wb = (*d.wb).clone();
+            d.calc.recalc_all(&mut wb);
+            d.wb = Arc::new(wb);
+            if clean {
+                d.saved = d.wb.clone();
+            }
+        }
         self.docs.push(d);
         let w = self.push_window(uid);
         self.activate_window(w);

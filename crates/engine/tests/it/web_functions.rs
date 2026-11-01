@@ -263,3 +263,21 @@ fn webservice_without_fetcher_is_value_error() {
     set(&mut s, "A1", "=WEBSERVICE(\"https://api.test/hello\")");
     assert_eq!(value(&s, "A1"), Value::Error(gridcraft_core::CellError::Value));
 }
+
+/// A workbook opened after the host installs a fetcher shows fetched values at once, and opens clean.
+#[test]
+fn opening_a_workbook_uses_the_installed_fetcher() {
+    let path = std::env::temp_dir().join(format!("gridcraft-webservice-open-{}.xlsx", std::process::id()));
+    let mut writer = Session::new();
+    writer.execute("file.new", json!({})).unwrap();
+    set(&mut writer, "A1", "=WEBSERVICE(\"https://api.test/hello\")");
+    assert_eq!(value(&writer, "A1"), Value::Error(gridcraft_core::CellError::Value));
+    writer.execute("file.saveAs", json!({"path": path.to_string_lossy()})).unwrap();
+
+    let mut s = Session::new();
+    s.set_web_fetcher(Some(Arc::new(CannedWeb)));
+    s.execute("file.open", json!({"path": path.to_string_lossy()})).unwrap();
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(value(&s, "A1"), Value::from("hello"));
+    assert!(!s.doc().unwrap().is_dirty(), "recalculating on open must not leave the workbook modified");
+}

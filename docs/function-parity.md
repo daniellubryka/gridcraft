@@ -49,7 +49,7 @@ Excel's worksheet functions, category by category, against GridCraft's function 
 | Web | 3 | 3 | 2 | 67% | (WEBSERVICE is a stub until a host installs a fetcher; FILTERXML and ENCODEURL work) |
 | Add-in and Automation | 3 | 1 | 1 | 33% | CALL, REGISTER.ID |
 | AI and Python | 2 | 0 | 0 | 0% | COPILOT, PY |
-| **Total** | **523** | **505** | **496** | **94.8%** | 18 missing, 9 stubs |
+| **Total** | **523** | **513** | **505** | **96.6%** | 10 missing, 8 stubs |
 
 By the Excel version that introduced them (working / total): before 2010 346 / 360, 2010
 56 / 56, 2013 49 / 51, 2016 1 / 5, 2019 6 / 6, 2021 11 / 11, 2024 22 / 23, Microsoft 365 5 / 11.
